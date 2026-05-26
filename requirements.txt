@@ -2,3 +2,11 @@ fastapi
 uvicorn
 pandas
 scikit-learn
+joblib
+requests
+python-dotenv
+pytest
+httpx
+# İsteğe bağlı ağır NLP modeli için:
+# transformers
+# torch
