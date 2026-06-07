@@ -2,6 +2,7 @@ import os
 import requests
 import logging
 from fastapi import FastAPI, BackgroundTasks
+from pydantic import BaseModel
 
 from sentiment import duygu_skoru_hesapla, tema_bul, tekrar_kontrol
 from data.mock_reviews import yorumlar
@@ -107,3 +108,47 @@ def toplu_yorum_analiz(veri: dict, background_tasks: BackgroundTasks):
         "uyarilar":        uyarilar,
         "toplamYorum":     len(bulgular)
     }
+
+
+# In-memory undo stack
+_son_talimat_stack = []
+
+
+class TalimatIstegi(BaseModel):
+    talimat: str
+
+
+@app.post("/talimat")
+def talimat_calistir(istek: TalimatIstegi):
+    """Gelen prompt'u işler ve sonuç döndürür."""
+    prompt = istek.talimat.lower()
+
+    if "nlp" in prompt or "yorum" in prompt or "duygu" in prompt:
+        anlasilan = "NLP/Duygu Analizi"
+    elif "skor" in prompt or "uyum" in prompt:
+        anlasilan = "Ürün Skor Güncelleme"
+    elif "iade" in prompt:
+        anlasilan = "İade Riski Tespiti"
+    elif "stok" in prompt or "tahmin" in prompt:
+        anlasilan = "Stok Tahmini"
+    else:
+        anlasilan = "Genel AI Görevi"
+
+    _son_talimat_stack.append({"talimat": istek.talimat, "anlasilan": anlasilan})
+
+    return {
+        "durum": "Tamamlandı",
+        "anlasilan": anlasilan,
+        "etkilenen": 0,
+        "sonuclar": []
+    }
+
+
+@app.post("/talimat/undo")
+def talimat_undo():
+    """Son çalıştırılan talimatı geri alır."""
+    if not _son_talimat_stack:
+        return {"durum": "Boş", "geriAlinanTalimat": None}
+
+    geri_alinan = _son_talimat_stack.pop()
+    return {"durum": "GeriAlındı", "geriAlinanTalimat": geri_alinan}
